@@ -49,12 +49,12 @@ with open(VERSION_FILE, 'w') as f:
 setuptools.setup(
     name="corsair",
     version=version,
-    author="esynr3z",
-    author_email="esynr3z@gmail.com",
+    author="esynr3z, jstaelens",
+    author_email="jeansebastien.staelens@gmail.com",
     description="Control and Status Register map generator for FPGA/ASIC projects",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/esynr3z/corsair",
+    url="git@github.com:jstaelen/corsair.git",
     project_urls={
         'Documentation': 'https://corsair.readthedocs.io'
     },
