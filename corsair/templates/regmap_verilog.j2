@@ -141,6 +141,14 @@ csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_raccess
 csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_waccess
 {%- endmacro %}
 
+{% macro sig_bf_waccess_prev(reg, bf) %}
+csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_waccess_prev
+{%- endmacro %}
+
+{% macro sig_bf_waccess_ff(reg, bf) %}
+csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_waccess_ff
+{%- endmacro %}
+
 {#- port: bitfield lock signal #}
 {% macro port_bf_lock(reg, bf) %}
 csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_lock
@@ -280,7 +288,9 @@ end
 //---------------------
         {% if 'a' in bf.hardware %}
             {% if 'o' in bf.hardware %}
-assign {{ port_bf_waccess(reg, bf) }} = wready && {{ sig_csr_wen(reg) }};
+wire {{ sig_bf_waccess_prev(reg, bf) }} = wready && {{ sig_csr_wen(reg) }};
+reg {{ sig_bf_waccess_ff(reg, bf) }};
+assign {{ port_bf_waccess(reg, bf) }} = {{ sig_bf_waccess_ff(reg, bf) }};
             {% endif %}
             {% if 'i' in bf.hardware %}
 assign {{ port_bf_raccess(reg, bf) }} = rvalid && {{ sig_csr_ren(reg) }};
@@ -306,6 +316,15 @@ assign {{ port_bf_ren(reg, bf) }} = {{ sig_csr_ren(reg) }} & (~{{ sig_csr_ren_ff
         {% endif %}
         {% if 'w' in bf.access and 'q' in bf.hardware %}
 assign {{ port_bf_wen(reg, bf) }} = {{ sig_csr_wen(reg) }};
+        {% endif %}
+
+        {% if 'a' in bf.hardware %}
+            {% if 'o' in bf.hardware %}
+{{ always_begin(sig=sig_bf_waccess_ff(reg, bf) , width=1, init=0)}} begin
+        {{ sig_bf_waccess_ff(reg, bf) }} <= {{ sig_bf_waccess_prev(reg, bf) }};
+    end
+end
+            {% endif %}
         {% endif %}
 
 {{ always_begin(sig=sig_bf_ff(reg, bf), width=bf.width, init=bf.reset)
