@@ -606,3 +606,28 @@ class Python(Generator, Jinja2):
         j2_vars['config'] = config.globcfg
         # render
         self.render_to_file(j2_template, j2_vars, self.path)
+
+class PythonCocoTB(Generator, Jinja2):
+    """Create Python file to access register map via some interface using CocoTB
+
+    :param rmap: Register map object
+    :type rmap: :class:`corsair.RegisterMap`
+    :param path: Path to the output file
+    :type path: str
+    """
+
+    def __init__(self, rmap=None, path='cocotb_regs.py', **args):
+        super().__init__(rmap, **args)
+        self.path = path
+
+    def generate(self):
+        # validate parameters
+        self.validate()
+        # prepare jinja2
+        j2_template = 'regmap_py_cocotb.j2'
+        j2_vars = {}
+        j2_vars['corsair_ver'] = __version__
+        j2_vars['rmap'] = self.rmap
+        j2_vars['config'] = config.globcfg
+        # render
+        self.render_to_file(j2_template, j2_vars, self.path)

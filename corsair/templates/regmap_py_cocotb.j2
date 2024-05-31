@@ -1,0 +1,103 @@
+{# MACRO #}
+{#- value in hex format #}
+{% macro literal(val, width) %}
+{{ "0x%0{w}x".format(w=width // 4) % val }}
+{%- endmacro %}
+
+{#- register address #}
+{% macro reg_addr(reg) %}
+{{ reg.name.upper() }}_ADDR
+{%- endmacro %}
+
+{#- bitfield position #}
+{% macro bf_pos(reg, bf) %}
+{{ reg.name.upper() }}_{{ bf.name.upper() }}_POS
+{%- endmacro %}
+
+{#- bitfield mask #}
+{% macro bf_msk(reg, bf) %}
+{{ reg.name.upper() }}_{{ bf.name.upper() }}_MSK
+{%- endmacro %}
+
+{#- TEMPLATE #}
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+""" Created with Corsair v{{ corsair_ver }}
+
+Control/status register map.
+"""
+
+{% for reg in rmap %}
+{% for bf in reg %}
+
+class _Field{{ reg.name.capitalize() }}{{ bf.name.capitalize() }}:
+    def __init__(self, rmap):
+        self._rmap      = rmap
+        self.POS        = {{ bf.lsb }}
+        self.ADDR       = {{ literal(reg.address, config['address_width']) }}
+        self.MASK       = {{ literal(2 ** bf.width - 1, bf.width) }}
+        self.READ       = {% if 'r' in bf.access %}1 {% else %}0 {% endif %}
+
+        self.WRITE      = {% if 'w' in bf.access %}1 {% else %}0 {% endif %}
+
+        self.RESET_VAL  = {{ bf.reset }}
+        self.MAX_VAL    = {{ 2**bf.width - 1 }}
+
+    async def get(self):
+        """{{ bf.description }}"""
+        {% if 'r' not in bf.access %}
+        return 0
+        {% else %}
+        rdata = await self._rmap._if.read(self.ADDR)
+        return (rdata >> self.POS) & self.MASK
+        {% endif %}
+        {% if 'w' in bf.access %}
+
+    async def set(self, val):
+        rdata = await self._rmap._if.read(self.ADDR)
+        rdata = rdata & (~(self.MASK << self.POS))
+        rdata = rdata | (val << self.POS)
+        await self._rmap._if.write(self.ADDR, rdata)
+        {% endif %}
+
+    async def get_backdoor(self,inst):
+        return inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value
+
+    async def set_backdoor(self,inst,val):
+        inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value = val
+
+{% endfor %}
+{% endfor %}
+
+{% for reg in rmap %}
+
+class _Reg{{ reg.name.capitalize() }}:
+    def __init__(self, rmap):
+        self._rmap = rmap
+        self._ADDR = {{ literal(reg.address, config['address_width']) }}
+        self.fields = {}
+{% for bf in reg %}
+        self.fields["{{bf.name.lower()}}"] =   _Field{{ reg.name.capitalize()}}{{ bf.name.capitalize() }}(self._rmap)
+{% endfor %}
+
+    async def get(self):
+        """{{ reg.description }}"""
+        rdata = await self._rmap._if.read(self.ADDR)
+        return rdata
+
+    async def set(self, val):
+        await self._rmap._if.write(self.ADDR, val)
+
+
+{% endfor %}
+
+class RegMap:
+    """Control/Status register map"""
+
+    def __init__(self, interface):
+        self._if = interface
+        self.regs = {}
+{% for reg in rmap %}
+        self.regs["{{reg.name.lower()}}"] =   _Reg{{ reg.name.capitalize() }}(self)
+{% endfor %}
