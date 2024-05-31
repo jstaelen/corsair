@@ -34,12 +34,11 @@ Control/status register map.
 class _Field{{ reg.name.capitalize() }}{{ bf.name.capitalize() }}:
     def __init__(self, rmap):
         self._rmap      = rmap
+        self.access     = "{{ bf.access }}"
+        self.hardware   = "{{ bf.hardware }}"
         self.POS        = {{ bf.lsb }}
         self.ADDR       = {{ literal(reg.address, config['address_width']) }}
         self.MASK       = {{ literal(2 ** bf.width - 1, bf.width) }}
-        self.READ       = {% if 'r' in bf.access %}1 {% else %}0 {% endif %}
-
-        self.WRITE      = {% if 'w' in bf.access %}1 {% else %}0 {% endif %}
 
         self.RESET_VAL  = {{ bf.reset }}
         self.MAX_VAL    = {{ 2**bf.width - 1 }}
@@ -62,10 +61,16 @@ class _Field{{ reg.name.capitalize() }}{{ bf.name.capitalize() }}:
         {% endif %}
 
     async def get_backdoor(self,inst):
-        return inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value
+        return int(inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value)
 
     async def set_backdoor(self,inst,val):
         inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value = val
+
+    async def force_backdoor(self,inst,val):
+        inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value = Force(val)
+
+    async def release(self,inst,val):
+        inst.{{ config.backdoor_inst_path }}.csr_{{ reg.name.lower() }}_{{ bf.name.lower() }}_ff.value = Release()
 
 {% endfor %}
 {% endfor %}
